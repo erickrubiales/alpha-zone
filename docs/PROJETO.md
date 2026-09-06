@@ -441,6 +441,7 @@ para desenhar o croqui, push, e **qualquer ligação com a loja / WooCommerce**.
 | | caminho |
 |---|---|
 | Este app | `D:\PROJETOS\PARTICULAR\alpha-zone` |
+| Este app (remoto) | `github.com/erickrubiales/alpha-zone` (privado) — remote `origin`; o remote `ipsc-core` é só do subtree, **nunca dar push da branch `main` nele** |
 | Console do Firebase | `https://console.firebase.google.com/project/alpha-zone-app` |
 | App da loja | `C:\Users\erick\ng-loja-app` |
 | Espelho do núcleo (local) | `C:\Users\erick\ipsc-core` |
