@@ -1,0 +1,25 @@
+# Trava do núcleo, no servidor. Falha aqui = o motor divergiu ou deixou de ser
+# fechado, e nenhum app pode espelhá-lo até consertar.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Integridade (hashes do CORE.manifest.json) + fechamento (zero imports externos).
+      - name: check:core
+        run: node tools/check-core.mjs
+
+      # Os casos de aceite do motor.
+      - name: check:ipsc
+        run: npx --yes tsx __checks__/check-ipsc-scoring.ts
