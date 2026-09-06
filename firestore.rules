@@ -1,0 +1,75 @@
+rules_version = '2';
+
+// Regras do Alpha Zone.
+//
+// Duas decisões estruturais estão codificadas aqui:
+//
+// 1. `entitlements` é coleção de TOPO, nunca `users/{uid}/entitlements`. As regras
+//    do Firestore combinam por OU: um `allow write` num wildcard `users/{uid}/{doc=**}`
+//    não pode ser subtraído por uma regra posterior mais restritiva, e o cliente
+//    passaria a poder se promover para assinante sozinho.
+//
+// 2. `apple_authorizations` é somente ESCRITA. O código de autorização da Apple é
+//    consumido por Cloud Function para obter o refresh token da revogação; ele não
+//    deve voltar para nenhum cliente.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Assinante? Vem do custom claim gravado pela função que recebe o webhook da
+    // loja de aplicativos. O cliente não consegue forjar.
+    function isPro() {
+      return signedIn() && request.auth.token.pro == true;
+    }
+
+    // ── Perfil e dados de treino do próprio usuário ────────────────────────
+    match /users/{uid} {
+      allow read, write: if isSelf(uid);
+
+      match /{document=**} {
+        allow read, write: if isSelf(uid);
+      }
+    }
+
+    // ── Entitlements: só o servidor escreve ────────────────────────────────
+    match /entitlements/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false; // exclusivo das Cloud Functions (Admin SDK ignora regras)
+    }
+
+    // ── Código de autorização da Apple: escrita cega ───────────────────────
+    match /apple_authorizations/{uid} {
+      allow create, update: if isSelf(uid);
+      allow read, delete: if false;
+    }
+
+    // ── Torneios (M6) ─────────────────────────────────────────────────────
+    // Criar match é recurso de assinante; o reforço no servidor existe porque o
+    // portão do cliente é contornável por qualquer chamada REST autenticada.
+    match /tournaments/{tid} {
+      allow read: if signedIn();
+      allow create: if isPro() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      match /participants/{uid} {
+        allow read: if signedIn();
+        allow write: if isSelf(uid)
+          || (signedIn() && get(/databases/$(database)/documents/tournaments/$(tid)).data.ownerUid == request.auth.uid);
+      }
+
+      match /results/{rid} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.participantUid == request.auth.uid;
+        allow update, delete: if signedIn()
+          && get(/databases/$(database)/documents/tournaments/$(tid)).data.ownerUid == request.auth.uid;
+      }
+    }
+  }
+}
