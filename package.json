@@ -49,7 +49,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "check:ipsc": "npx --yes tsx src/core/__checks__/check-ipsc-scoring.ts",
+    "check:core": "node src/core/tools/check-core.mjs",
+    "check": "npm run check:core && npm run check:ipsc",
+    "core:pull": "git subtree pull --prefix src/core ipsc-core main --squash"
   },
   "private": true
 }
