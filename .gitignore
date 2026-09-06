@@ -44,3 +44,9 @@ example
 
 # Segredos locais
 .env
+
+# Configs de plataforma do Firebase (mesma natureza do .env: identificam o projeto,
+# não são segredo, mas ficam fora do git para o clone no Mac não herdar um projeto
+# errado por acidente). Baixar com: firebase apps:sdkconfig ANDROID|IOS -o <arquivo>
+google-services.json
+GoogleService-Info.plist

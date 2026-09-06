@@ -34,7 +34,15 @@ export async function signInWithGoogle(): Promise<UserCredential> {
   await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
   const result = await GoogleSignin.signIn();
-  const idToken = result.data?.idToken;
+
+  // Desde a v13 o cancelamento não lança: volta `{ type: 'cancelled' }`. Sem este
+  // desvio, quem fecha a folha do Google veria "não devolveu o token" como erro.
+  // Lançar com o código de cancelamento faz `isCancelled()` silenciar a UI.
+  if (result.type === 'cancelled') {
+    throw Object.assign(new Error('Login cancelado.'), { code: statusCodes.SIGN_IN_CANCELLED });
+  }
+
+  const idToken = result.data.idToken;
   if (!idToken) throw new Error('O Google não devolveu o token de identidade.');
 
   return signInWithCredential(firebaseAuth, GoogleAuthProvider.credential(idToken));

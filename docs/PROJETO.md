@@ -19,7 +19,7 @@ Existem **dois produtos**, que vão evoluir em paralelo:
 
 | | **Alvos NG** (existente) | **Alpha Zone** (este) |
 |---|---|---|
-| Repositório | `C:\Users\erick\ng-loja-app` | `C:\Users\erick\alpha-zone` |
+| Repositório | `C:\Users\erick\ng-loja-app` | `D:\PROJETOS\PARTICULAR\alpha-zone` |
 | O que é | e-commerce headless (WooCommerce) que ganhou módulo de treino | app de IPSC puro |
 | Público | Brasil | internacional |
 | Idioma | português | pt / en / es |
@@ -58,6 +58,7 @@ Escolhidos para **não colidir** com o app da loja — os dois vão estar no mes
 | bundle id (iOS) / package (Android) | `com.rubiales.nglojaapp` | `com.rubiales.alphazone` |
 | scheme | `nglojaapp` | `alphazone` |
 | slug | `ng-loja-app` | `alpha-zone` |
+| projeto Firebase | (o da loja) | `alpha-zone-app` — `alpha-zone` já existia no mundo |
 | projeto EAS | `3a7533ca-…` | **ainda não criado** |
 
 ---
@@ -141,7 +142,16 @@ src/
 ├── components/    ← form.tsx pronto; alvo, croqui, cronômetro vêm no M4/M5
 ├── constants/     ← design.ts (paleta + fontes)  [PRONTO]
 └── app/           ← Expo Router: (auth)/ e (app)/  [esqueleto pronto]
+
+raiz/
+├── app.json           ← config estática
+├── app.config.js      ← complemento dinâmico: liga googleServicesFile e lê o iosUrlScheme do plist
+├── firebase.json, .firebaserc, firestore.indexes.json  ← deploy das regras em alpha-zone-app
+├── .env, google-services.json, GoogleService-Info.plist ← FORA do git (identificam o projeto)
+└── android/, ios/     ← gerados por prebuild, FORA do git
 ```
+
+`app.config.js` é `.js` de propósito, ver armadilha 15.
 
 ### 3.3 Freemium num arquivo só
 
@@ -212,15 +222,40 @@ descobrir agora do que depois de portar 3.000 linhas de torneio.
 | `src/app/(auth)/` | `sign-in`, `sign-up`, `reset` |
 | `src/app/(app)/index.tsx` | home provisória que prova sessão + núcleo ligado |
 | `firestore.rules` | regras iniciais (ver §3.3) |
+| `app.config.js` | liga `googleServicesFile` nas duas plataformas e lê o `iosUrlScheme` do próprio plist (armadilhas 15 e 17) |
+| `firebase.json`, `.firebaserc`, `firestore.indexes.json` | `firebase deploy --only firestore:rules` aponta para `alpha-zone-app` |
 
-**O que falta no M1:**
+**Infra provisionada em 2026-09-06, pela CLI `firebase` (sem console):**
 
-1. Criar o projeto Firebase e preencher `.env` (copiar de `.env.example`).
-2. Baixar `google-services.json` (Android) e `GoogleService-Info.plist` (iOS) e referenciá-los no `app.json`.
-3. Adicionar o `iosUrlScheme` do Google Sign-In no plugin (`app.json`), que vem do plist (`REVERSED_CLIENT_ID`).
-4. `npx expo prebuild` e rodar dev build em aparelho real nas duas plataformas.
-5. Publicar `firestore.rules` no projeto novo.
-6. Testar os 4 critérios de saída.
+| | valor |
+|---|---|
+| Projeto Firebase | `alpha-zone-app`, número `371270416807` |
+| App Android | `1:371270416807:android:c8f0dc92330064f56d9e82` — SHA-1 e SHA-256 do keystore de **debug** já registrados |
+| App iOS | `1:371270416807:ios:2aaf9584d0abb89c6d9e82` |
+| App Web | `1:371270416807:web:299d62897a93c7736d9e82` — é dele que sai o `.env` (o SDK JS usa a config Web) |
+| Firestore | banco `(default)` em **`nam5`** (multi-região EUA, armadilha 19); `firestore.rules` **publicadas** |
+| APIs ativadas | `firestore.googleapis.com`, `identitytoolkit.googleapis.com` |
+| Local | `.env`, `google-services.json` e `GoogleService-Info.plist` preenchidos (fora do git) |
+| Build nativa | `npx expo prebuild -p android` ok; `gradlew assembleDebug` **verde** (15 min na primeira vez, APK em `android/app/build/outputs/apk/debug/`) — falta só instalar num aparelho |
+
+Correção que entrou junto: `GoogleSignin.signIn()` v16 devolve `{ type: 'cancelled' }` em vez
+de lançar — sem tratar, cancelar virava erro na tela (armadilha 16).
+
+**O que falta no M1 — tudo manual, em console/portal:**
+
+1. **Console do Firebase → Authentication → Começar.** O Auth só é inicializado pelo console
+   (a API admin devolve `CONFIGURATION_NOT_FOUND` antes disso, armadilha 18). Ativar:
+   - **E-mail/senha**;
+   - **Google** — o console cria os clientes OAuth. Depois: copiar o **ID do cliente da Web**
+     para `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` no `.env` e **baixar o plist de novo**
+     (`firebase apps:sdkconfig IOS 1:371270416807:ios:2aaf9584d0abb89c6d9e82 -o GoogleService-Info.plist`),
+     porque só então ele traz o `REVERSED_CLIENT_ID` que o `app.config.js` lê (armadilha 17);
+   - **Apple** — exige antes App ID com Sign in with Apple, Services ID e Key no Apple Developer (§9).
+2. **Android real** por USB (`adb devices` estava vazio e não há AVD nesta máquina):
+   `npx expo run:android --device`.
+3. **iPhone**, no Mac: `npx expo prebuild -p ios` + `npx expo run:ios --device`, com o plist
+   já contendo `REVERSED_CLIENT_ID` (senão o plugin do Google é omitido, com aviso).
+4. Testar os 4 critérios de saída.
 
 ---
 
@@ -308,6 +343,35 @@ Estas custaram tempo ou vão custar. Estão aqui para não custar duas vezes.
 14. **Git Credential Manager trava** em push/fetch para o `ipsc-core`. Autenticar uma vez pelo
     navegador resolve.
 
+15. **TypeScript 6 não inclui mais `@types/*` sozinho** (`types` passou a valer `[]`). Um
+    `app.config.ts` precisaria de `@types/node` listado em `types` — o que traz os globais do
+    Node (`setTimeout` → `NodeJS.Timeout`) para o código React Native e quebra o cronômetro
+    portado. Por isso o complemento dinâmico é **`app.config.js`**, fora do `tsc`.
+
+16. **`GoogleSignin.signIn()` (v13+) não lança ao cancelar** — devolve `{ type: 'cancelled' }`.
+    Sem tratar, fechar a folha do Google virava "não devolveu o token" na tela. `google.ts`
+    converte em erro com código `SIGN_IN_CANCELLED`, que `isCancelled()` silencia.
+
+17. **O plist só ganha `REVERSED_CLIENT_ID` depois de ativar o Google no console.** Baixado
+    antes, vem sem o campo; o `app.config.js` então omite o plugin do Google Sign-In (com aviso
+    no prebuild) e o login do Google não funciona no iOS. **Re-baixar depois de ativar.** O
+    plugin exige o campo mesmo quando só o Android está sendo gerado — por isso a omissão, e
+    não um erro.
+
+18. **`gcloud` desta máquina está em outra conta** (`@nukk.com.br`); a CLI `firebase` está na
+    certa (`erickrubiales@gmail.com`). Para ativar uma API sem console, usar os módulos internos
+    da firebase-tools (`lib/ensureApiEnabled` + `lib/apiv2.setRefreshToken`) — foi assim que
+    Firestore e Identity Toolkit foram ativados. Mas o **Firebase Auth só é inicializado pelo
+    console**: a API admin responde `CONFIGURATION_NOT_FOUND` até o primeiro "Começar", e o
+    endpoint público de init é o do Identity Platform, que muda produto e cobrança.
+
+19. **Localização do Firestore é irreversível** (só apagando o banco). Ficou `nam5`
+    (multi-região EUA), por ser produto internacional e as Functions irem para `us-central1`.
+    Se for mudar, é agora, com o banco vazio.
+
+20. **Heredoc no Git Bash come `\\`** (virou `\`, quebrou um regex). Scripts com barra invertida
+    vão pela ferramenta de escrita de arquivo — reforço da armadilha 13.
+
 ---
 
 ## 7. Como verificar
@@ -315,7 +379,10 @@ Estas custaram tempo ou vão custar. Estão aqui para não custar duas vezes.
 ```sh
 npm run check          # check:core (integridade + fechamento) && check:ipsc (45 casos)
 npx tsc --noEmit
-npx expo start         # dev
+npx expo-doctor        # peer deps e versões do SDK
+npx expo config --type prebuild        # app.json + app.config.js resolvidos (plugins, googleServicesFile)
+firebase deploy --only firestore:rules # publica as regras em alpha-zone-app
+npx expo run:android --device          # dev build (o login usa SDK nativo: não roda no Expo Go)
 ```
 
 - **Motor**: `check:ipsc` roda nos **dois** repos com o mesmo `coreVersion`; `check:core`
@@ -355,11 +422,14 @@ para desenhar o croqui, push, e **qualquer ligação com a loja / WooCommerce**.
   dashboard e o rótulo "IPSC (beta)" no feedback).
 
 **Contas e serviços (é o que tem latência — começar por aqui):**
-1. **Firebase**: projeto novo → apps iOS e Android → baixar os arquivos de config → ativar
-   E-mail/senha, Google e Apple em Authentication → publicar `firestore.rules`.
+1. **Firebase**: ~~projeto novo → apps iOS e Android → baixar os arquivos de config~~ ✅ →
+   **ativar E-mail/senha, Google e Apple em Authentication** (só pelo console; ver §4, M1) →
+   ~~publicar `firestore.rules`~~ ✅.
 2. **Apple Developer**: App ID `com.rubiales.alphazone` com a capability **Sign in with Apple**,
    mais o Services ID e a Key que o Firebase pede.
-3. **Google Play Console**: registrar o app (sem subir nada) e pôr o **SHA-1** no Firebase.
+3. **Google Play Console**: registrar o app (sem subir nada) e pôr o **SHA-1 de release** no
+   Firebase (o de debug já está; comando:
+   `firebase apps:android:sha:create 1:371270416807:android:c8f0dc92330064f56d9e82 <SHA1>`).
 4. **Contrato de apps pagos** + dados bancários e fiscais na Apple. **É o item mais demorado** e
    bloqueia o M2 inteiro.
 5. **RevenueCat**: conta, projeto, um entitlement chamado `pro`.
@@ -370,7 +440,8 @@ para desenhar o croqui, push, e **qualquer ligação com a loja / WooCommerce**.
 
 | | caminho |
 |---|---|
-| Este app | `C:\Users\erick\alpha-zone` |
+| Este app | `D:\PROJETOS\PARTICULAR\alpha-zone` |
+| Console do Firebase | `https://console.firebase.google.com/project/alpha-zone-app` |
 | App da loja | `C:\Users\erick\ng-loja-app` |
 | Espelho do núcleo (local) | `C:\Users\erick\ipsc-core` |
 | Espelho do núcleo (remoto) | `github.com/erickrubiales/ipsc-core` (privado) |

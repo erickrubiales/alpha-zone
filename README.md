@@ -1,56 +1,46 @@
-# Welcome to your Expo app 👋
+# Alpha Zone
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App de **tiro prático (IPSC)**: treino, cronometragem, pontuação Comstock, criador de pistas
+e torneios. Produto pago por assinatura, para mercado internacional.
 
-## Get started
+**Comece por [docs/PROJETO.md](docs/PROJETO.md)** — contexto, decisões fechadas, arquitetura,
+estado de cada marco e armadilhas conhecidas. As regras inegociáveis estão em
+[CLAUDE.md](CLAUDE.md).
 
-1. Install dependencies
+## Rodar
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```sh
+npm install
+cp .env.example .env            # e preencher (ver docs/PROJETO.md §4, M1)
+npx expo prebuild               # gera android/ e ios/ (ambos fora do git)
+npx expo run:android --device   # dev build num aparelho real
+npx expo start                  # Metro para o dev build já instalado
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+O login usa SDKs nativos (Google e Apple), então **não roda no Expo Go** — só em dev build.
 
-### Other setup steps
+Os arquivos `google-services.json` e `GoogleService-Info.plist` ficam fora do git, ao lado
+do `.env`. Para baixá-los de novo:
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```sh
+firebase apps:sdkconfig ANDROID 1:371270416807:android:c8f0dc92330064f56d9e82 -o google-services.json
+firebase apps:sdkconfig IOS 1:371270416807:ios:2aaf9584d0abb89c6d9e82 -o GoogleService-Info.plist
+```
 
-## Learn more
+## Verificar
 
-To learn more about developing your project with Expo, look at the following resources:
+```sh
+npm run check        # check:core (integridade do espelho) && check:ipsc (45 casos de aceite)
+npx tsc --noEmit
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Regras do Firestore
 
-## Join the community
+```sh
+firebase deploy --only firestore:rules
+```
 
-Join our community of developers creating universal apps.
+## `src/core/` é espelhado — nunca editar aqui
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+É um `git subtree` de `ipsc-core`. Para mudar o motor, altere em `C:\Users\erick\ipsc-core`,
+rode `node tools/gen-manifest.mjs`, commite, e traga com `npm run core:pull`.
