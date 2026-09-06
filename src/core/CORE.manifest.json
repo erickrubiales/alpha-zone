@@ -1,0 +1,16 @@
+{
+  "_": "Gerado por tools/gen-manifest.mjs. Não editar à mão — é a trava do espelho.",
+  "coreVersion": "48511c65fa3e",
+  "files": {
+    ".gitattributes": "2698f5103c61f0c726600de5869f8e38d6cef6e7525db9734de2de38f9fbecd5",
+    "README.md": "755d17d3ae5de5b3f486e41cee7a989dfbc6587047b238617dc7d70bfe1fda0e",
+    "__checks__/check-ipsc-scoring.ts": "c87517ae26484e6acc51bb4fbce860b93ff7801c1ab70f681dc8dc240201e825",
+    "format-num.ts": "d1745b292dfc9c5e5a66063b1aca94b68a6c510c6aaf7391f663484e6a1c854c",
+    "ipsc-drills-builtin.ts": "48fb08f8a29abdc58f1fecaa16a12ec0794a2120d94d01d523b251ac1ea06d1f",
+    "ipsc-ranking.ts": "b58cc6dc750ce15403d268a7b3b63cd9fee9e284540bf36ce3bd8296436fb0d9",
+    "ipsc-scoring.ts": "aaabcc7dfd51816edf9f837545bfa460d57ae461021bd18b61b9c6df6b76e3d7",
+    "target-geometry.ts": "b4fd669e1888204aff5420fb513145d90797994a8d62f343de21d4ba35f9767b",
+    "tools/check-core.mjs": "d9c6a2d7ab40c98cc0514a52f9b60ee272f9186076c183dedf15566b7ba89883",
+    "tools/gen-manifest.mjs": "8bd27d668cfcdab50a00df9fefb97711cf4d82e45eb0fdab40b4d48d44e463f4"
+  }
+}

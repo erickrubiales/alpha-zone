@@ -1,0 +1,2 @@
+# O núcleo é espelhado e verificado por hash: LF em todo lugar, inclusive no Windows.
+* text eol=lf
