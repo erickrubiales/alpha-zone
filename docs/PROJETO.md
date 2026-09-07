@@ -5,7 +5,7 @@
 > retome sem depender do que foi dito. Se algo aqui divergir do código, o código manda —
 > e este arquivo deve ser corrigido.
 >
-> Data: 2026-09-06.
+> Criado em 2026-09-06; última atualização 2026-09-07 (M1 fechado).
 
 ---
 
@@ -197,7 +197,7 @@ Verificação: `check:ipsc` 45/45, `tsc --noEmit` limpo, `eslint` limpo nos arqu
 > de credencial. Conferir a aba Actions do `ipsc-core` — se falhar, provavelmente é a versão
 > do Node no runner.
 
-### 🔵 M1 — Identidade + build nativa (EM ANDAMENTO)
+### ✅ M1 — Identidade + build nativa (fechado em 2026-09-07)
 
 > **Pronto quando:** dev build em **iPhone e Android reais**; login pelos 3 métodos;
 > matar e reabrir o app mantém a sessão; e-mail de redefinição de senha chega.
@@ -259,18 +259,20 @@ de lançar — sem tratar, cancelar virava erro na tela (armadilha 16).
   **Login do Google funcionando ponta a ponta** em 2026-09-07: seletor de contas → home logada
   (`google.com`) → `users/{uid}` gravado com nome, e-mail, `createdAt` e `lastSeenAt` →
   **matar e reabrir mantém a sessão** (confirmado por print após `am force-stop`).
-- ⏳ **Apple** (pendente). A doc do Firebase lista **4 etapas no Apple Developer, sem exceção para
-  iOS-only**: (1) capability Sign in with Apple no App ID `com.rubiales.alphazone`; (2) Services ID
-  com Return URL `https://alpha-zone-app.firebaseapp.com/__/auth/handler`; (3) Key de Sign in with
-  Apple (a mesma que a revogação do M8 vai usar); (4) **relay de e-mail privado** registrando
-  `noreply@alpha-zone-app.firebaseapp.com` — sem isso, quem escondeu o e-mail no login Apple
-  **não recebe o e-mail de reset**, e o critério de saída falha só para esses usuários. Depois,
-  ligar o provedor Apple no console com Services ID, Team ID `29XQZ253D3`, Key ID e a chave.
-- ⏳ **iPhone**, no Mac: `npx expo prebuild -p ios` + `npx expo run:ios --device`. O plist já tem
-  `REVERSED_CLIENT_ID` (sem ele o plugin do Google é omitido, com aviso).
-- ⏳ **Os 4 critérios de saída**, estado no Android: Google ✅, matar/reabrir ✅, e-mail/senha
-  (cadastro + entrada) ⏳, e-mail de reset chega ⏳. Apple e tudo de iPhone ⏳ (dependem do Mac
-  e do item Apple acima).
+- ✅ **Apple**, feito seguindo [apple-sign-in.md](apple-sign-in.md) (as 4 etapas no Apple
+  Developer + provedor no Firebase). Conferido pela API admin do Identity Toolkit: `apple.com`
+  ligado com Services ID `com.rubiales.alphazone.signin`, Team ID `29XQZ253D3` e Key ID
+  `AATGSTM44M`. O `.p8` está só no gerenciador de senhas e no console — **nunca no repo**. É a
+  mesma chave que a revogação do M8 vai usar.
+- ✅ **iPhone**: build no Mac e login pela Apple feitos. Evidência no Firestore: usuário com
+  e-mail `…@privaterelay.appleid.com` (ou seja, "Ocultar meu e-mail" exercitado, relay em uso),
+  `displayName` capturado no primeiro grant, e `apple_authorizations/{uid}` gravado com o
+  `authorizationCode` para o M8.
+- ✅ **Os 4 critérios de saída.** Três métodos de login com um usuário real de cada em
+  `users/` (Google, e-mail/senha, Apple); matar/reabrir mantém a sessão (conferido no Android
+  por `am force-stop` + print); e-mail de reset e sessão no iPhone reportados como ok.
+  Proteção contra enumeração de e-mails confirmada ligada (`enableImprovedEmailPrivacy: true`),
+  como a armadilha 6 previa.
 
 ---
 
@@ -280,7 +282,7 @@ de lançar — sem tratar, cancelar virava erro na tela (armadilha 16).
 |---|---|---|
 | ~~M0~~ | ~~Fechar o núcleo no repo atual~~ | ✅ |
 | ~~M0.5~~ | ~~Espelho verificável~~ | ✅ |
-| **M1** | **Identidade + build nativa** | dev build em iPhone e Android reais; login pelos 3 métodos; matar/reabrir mantém sessão; reset de senha chega |
+| ~~M1~~ | ~~Identidade + build nativa~~ | ✅ 2026-09-07 |
 | **M2** | **Monetização ponta a ponta** | compra em sandbox abre o portão; expiração acelerada fecha; escrita direta via REST em `tournaments` **falha** sem `pro` |
 | M3 | Núcleo + dados, sem UI | testes de regras no emulador: A não lê nada de B; não-pro não cria torneio; ninguém escreve `entitlements` |
 | **M4** | **Treino individual (o produto grátis)** | sessão completa no aparelho; para os mesmos impactos e tempo, HF/pontos **idênticos** ao app da loja; bipe toca no silencioso |
@@ -460,10 +462,9 @@ para desenhar o croqui, push, e **qualquer ligação com a loja / WooCommerce**.
   dashboard e o rótulo "IPSC (beta)" no feedback).
 
 **Contas e serviços (é o que tem latência — começar por aqui):**
-1. **Firebase**: ~~projeto, apps, configs, E-mail/senha, Google, regras~~ ✅ → falta só ligar o
-   provedor **Apple**, que depende do item 2.
-2. **Apple Developer**: as 4 etapas descritas em §4 (M1, "Apple"): capability no App ID,
-   Services ID com Return URL, Key, relay de e-mail privado.
+1. ~~**Firebase**: projeto, apps, configs, E-mail/senha, Google, Apple, regras~~ ✅
+2. ~~**Apple Developer**: capability no App ID, Services ID, Key, relay de e-mail~~ ✅
+   (guia em [apple-sign-in.md](apple-sign-in.md); vale reusar o roteiro no M8 para a revogação).
 3. **Google Play Console**: registrar o app (sem subir nada) e pôr o **SHA-1 de release** no
    Firebase (o de debug já está; comando:
    `firebase apps:android:sha:create 1:371270416807:android:c8f0dc92330064f56d9e82 <SHA1>`).
