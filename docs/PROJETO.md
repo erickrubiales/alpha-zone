@@ -230,32 +230,47 @@ descobrir agora do que depois de portar 3.000 linhas de torneio.
 | | valor |
 |---|---|
 | Projeto Firebase | `alpha-zone-app`, número `371270416807` |
-| App Android | `1:371270416807:android:c8f0dc92330064f56d9e82` — SHA-1 e SHA-256 do keystore de **debug** já registrados |
+| App Android | `1:371270416807:android:c8f0dc92330064f56d9e82` — SHA-1/SHA-256 de **dois** keystores de debug registrados: `android/app/debug.keystore` do prebuild (`5E:8F:16:…`, é o que assina o APK) e `~/.android/debug.keystore` (`62:0C:EC:…`). Falta o de release (M9) |
 | App iOS | `1:371270416807:ios:2aaf9584d0abb89c6d9e82` |
 | App Web | `1:371270416807:web:299d62897a93c7736d9e82` — é dele que sai o `.env` (o SDK JS usa a config Web) |
 | Firestore | banco `(default)` em **`nam5`** (multi-região EUA, armadilha 19); `firestore.rules` **publicadas** |
 | APIs ativadas | `firestore.googleapis.com`, `identitytoolkit.googleapis.com` |
 | Local | `.env`, `google-services.json` e `GoogleService-Info.plist` preenchidos (fora do git) |
-| Build nativa | `npx expo prebuild -p android` ok; `gradlew assembleDebug` **verde** (15 min na primeira vez, APK em `android/app/build/outputs/apk/debug/`) — falta só instalar num aparelho |
+| Build nativa | `npx expo prebuild -p android` ok; `gradlew assembleDebug` **verde** (15 min na primeira vez, APK em `android/app/build/outputs/apk/debug/`); instalado e rodando no SM-A715F em 2026-09-07 |
 
 Correção que entrou junto: `GoogleSignin.signIn()` v16 devolve `{ type: 'cancelled' }` em vez
 de lançar — sem tratar, cancelar virava erro na tela (armadilha 16).
 
-**O que falta no M1 — tudo manual, em console/portal:**
+**Estado em 2026-09-07:**
 
-1. **Console do Firebase → Authentication → Começar.** O Auth só é inicializado pelo console
-   (a API admin devolve `CONFIGURATION_NOT_FOUND` antes disso, armadilha 18). Ativar:
-   - **E-mail/senha**;
-   - **Google** — o console cria os clientes OAuth. Depois: copiar o **ID do cliente da Web**
-     para `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` no `.env` e **baixar o plist de novo**
-     (`firebase apps:sdkconfig IOS 1:371270416807:ios:2aaf9584d0abb89c6d9e82 -o GoogleService-Info.plist`),
-     porque só então ele traz o `REVERSED_CLIENT_ID` que o `app.config.js` lê (armadilha 17);
-   - **Apple** — exige antes App ID com Sign in with Apple, Services ID e Key no Apple Developer (§9).
-2. **Android real** por USB (`adb devices` estava vazio e não há AVD nesta máquina):
-   `npx expo run:android --device`.
-3. **iPhone**, no Mac: `npx expo prebuild -p ios` + `npx expo run:ios --device`, com o plist
-   já contendo `REVERSED_CLIENT_ID` (senão o plugin do Google é omitido, com aviso).
-4. Testar os 4 critérios de saída.
+- ✅ **Console do Firebase**: Auth inicializado (só o console faz isso, armadilha 18),
+  **E-mail/senha e Google ativados**. `.env` com o client id da **Web** (`371270416807-7tr7…`,
+  o `client_type: 3` do `google-services.json`); plist e `google-services.json` re-baixados, já
+  com os clientes OAuth (o do Android amarrado ao SHA-1 de debug). `npx expo config --type prebuild`
+  mostra o plugin do Google com o `iosUrlScheme` certo. Lembrete: `EXPO_PUBLIC_*` entra no bundle
+  na hora — mudou o `.env`, reinicie o Metro.
+- ✅ **Android real**: Samsung SM-A715F (Android 13) por USB. APK de debug instalado, Metro serve
+  o bundle (1535 módulos), o app sobe sem erro de JS e a tela de login aparece com e-mail/senha e
+  "Continuar com Google" (print conferido). Fluxo manual: `adb reverse tcp:8081 tcp:8081`
+  + `npx expo start` + abrir o app; `npx expo run:android --device` faz tudo isso de uma vez.
+  **Bugs achados e corrigidos no aparelho**: o app abria direto em "Redefinir senha", sem histórico
+  para o "Voltar" (armadilha 21); o login do Google falhava com `DEVELOPER_ERROR` por SHA-1 do
+  keystore errado (armadilha 22) e o código de erro não era mapeado (armadilha 23).
+  **Login do Google funcionando ponta a ponta** em 2026-09-07: seletor de contas → home logada
+  (`google.com`) → `users/{uid}` gravado com nome, e-mail, `createdAt` e `lastSeenAt` →
+  **matar e reabrir mantém a sessão** (confirmado por print após `am force-stop`).
+- ⏳ **Apple** (pendente). A doc do Firebase lista **4 etapas no Apple Developer, sem exceção para
+  iOS-only**: (1) capability Sign in with Apple no App ID `com.rubiales.alphazone`; (2) Services ID
+  com Return URL `https://alpha-zone-app.firebaseapp.com/__/auth/handler`; (3) Key de Sign in with
+  Apple (a mesma que a revogação do M8 vai usar); (4) **relay de e-mail privado** registrando
+  `noreply@alpha-zone-app.firebaseapp.com` — sem isso, quem escondeu o e-mail no login Apple
+  **não recebe o e-mail de reset**, e o critério de saída falha só para esses usuários. Depois,
+  ligar o provedor Apple no console com Services ID, Team ID `29XQZ253D3`, Key ID e a chave.
+- ⏳ **iPhone**, no Mac: `npx expo prebuild -p ios` + `npx expo run:ios --device`. O plist já tem
+  `REVERSED_CLIENT_ID` (sem ele o plugin do Google é omitido, com aviso).
+- ⏳ **Os 4 critérios de saída**, estado no Android: Google ✅, matar/reabrir ✅, e-mail/senha
+  (cadastro + entrada) ⏳, e-mail de reset chega ⏳. Apple e tudo de iPhone ⏳ (dependem do Mac
+  e do item Apple acima).
 
 ---
 
@@ -370,7 +385,30 @@ Estas custaram tempo ou vão custar. Estão aqui para não custar duas vezes.
     Se for mudar, é agora, com o banco vazio.
 
 20. **Heredoc no Git Bash come `\\`** (virou `\`, quebrou um regex). Scripts com barra invertida
-    vão pela ferramenta de escrita de arquivo — reforço da armadilha 13.
+    vão pela ferramenta de escrita de arquivo — reforço da armadilha 13. O Git Bash também
+    converte `/sdcard/x` em caminho do Windows (`adb shell screencap -p /sdcard/x` quebra); usar
+    `adb exec-out screencap -p > arquivo` no bash, nunca `>` no PowerShell (grava BOM + UTF-8 e
+    corrompe o PNG).
+
+21. **Grupo de rotas sem `index` abre a primeira rota em ordem alfabética.** Em `(auth)/`,
+    `reset` < `sign-in` < `sign-up`: o app abria em "Redefinir senha", e o "Voltar" dava
+    `GO_BACK not handled`. Corrigido com `export const unstable_settings = { anchor: 'sign-in' }`
+    no `_layout.tsx` do grupo (`initialRouteName` também é aceito). Vale para todo grupo novo
+    que não tenha `index.tsx` — torneios e criador de pistas vão criar vários.
+
+22. **O APK do prebuild é assinado por `android/app/debug.keystore`, não por
+    `~/.android/debug.keystore`.** O Expo gera esse keystore no `prebuild` (SHA-1 `5E:8F:16:06:…`,
+    o mesmo em todo projeto Expo). Registrar o SHA-1 do keystore da máquina no Firebase não
+    serve para nada: o Google devolve `DEVELOPER_ERROR` e o app mostrava só "Não foi possível
+    entrar". Conferir sempre com `keytool -list -v -keystore android/app/debug.keystore
+    -storepass android -alias androiddebugkey`. Depois de registrar um SHA novo, o cliente OAuth
+    leva alguns minutos para valer.
+
+23. **Códigos de erro do `@react-native-google-signin` são numéricos em string no Android**
+    (`"10"` = DEVELOPER_ERROR, `"7"` = NETWORK_ERROR, `"12501"` = cancelado) e outros números no
+    iOS; `statusCodes` só cobre parte deles. `google.ts` traduz para os códigos de texto que
+    `auth-errors.ts` conhece — nunca comparar com `statusCodes.SIGN_IN_CANCELLED` fora de
+    `google.ts`, porque o valor muda por plataforma.
 
 ---
 
@@ -422,11 +460,10 @@ para desenhar o croqui, push, e **qualquer ligação com a loja / WooCommerce**.
   dashboard e o rótulo "IPSC (beta)" no feedback).
 
 **Contas e serviços (é o que tem latência — começar por aqui):**
-1. **Firebase**: ~~projeto novo → apps iOS e Android → baixar os arquivos de config~~ ✅ →
-   **ativar E-mail/senha, Google e Apple em Authentication** (só pelo console; ver §4, M1) →
-   ~~publicar `firestore.rules`~~ ✅.
-2. **Apple Developer**: App ID `com.rubiales.alphazone` com a capability **Sign in with Apple**,
-   mais o Services ID e a Key que o Firebase pede.
+1. **Firebase**: ~~projeto, apps, configs, E-mail/senha, Google, regras~~ ✅ → falta só ligar o
+   provedor **Apple**, que depende do item 2.
+2. **Apple Developer**: as 4 etapas descritas em §4 (M1, "Apple"): capability no App ID,
+   Services ID com Return URL, Key, relay de e-mail privado.
 3. **Google Play Console**: registrar o app (sem subir nada) e pôr o **SHA-1 de release** no
    Firebase (o de debug já está; comando:
    `firebase apps:android:sha:create 1:371270416807:android:c8f0dc92330064f56d9e82 <SHA1>`).

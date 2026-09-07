@@ -8,7 +8,8 @@
  * No Android o login só funciona se o **SHA-1 do certificado que assinou o APK**
  * estiver cadastrado no projeto do Firebase. Como debug e release têm certificados
  * diferentes, o caso clássico é funcionar no dev build e quebrar no build assinado
- * — os dois SHA-1 precisam estar lá.
+ * — os dois SHA-1 precisam estar lá. E o debug do prebuild do Expo é o
+ * `android/app/debug.keystore`, não o `~/.android/debug.keystore`.
  */
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { GoogleAuthProvider, signInWithCredential, type UserCredential } from 'firebase/auth';
@@ -26,20 +27,46 @@ function ensureConfigured() {
 
 export { statusCodes as googleStatusCodes };
 
+/**
+ * Códigos do módulo nativo → códigos que `auth-errors.ts` entende.
+ *
+ * No Android o módulo rejeita com o status code do Play Services em string
+ * ("10" = DEVELOPER_ERROR, "7" = NETWORK_ERROR, "12501" = cancelado); no iOS são
+ * outros números. `statusCodes` já carrega o valor certo de cada plataforma para
+ * os casos que ele cobre; DEVELOPER_ERROR e NETWORK_ERROR ele não expõe, por isso
+ * os literais. Traduzir aqui mantém `auth-errors.ts` sem saber de plataforma.
+ */
+function normalizeGoogleError(e: unknown): unknown {
+  const code = String((e as { code?: unknown })?.code ?? '');
+  const withCode = (c: string) => Object.assign(e instanceof Error ? e : new Error(String(e)), { code: c });
+
+  if (code === statusCodes.SIGN_IN_CANCELLED) return withCode('SIGN_IN_CANCELLED');
+  if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) return withCode('PLAY_SERVICES_NOT_AVAILABLE');
+  if (code === '10') return withCode('DEVELOPER_ERROR');
+  if (code === '7') return withCode('auth/network-request-failed');
+  return e;
+}
+
 export async function signInWithGoogle(): Promise<UserCredential> {
   if (!firebaseAuth) throw new Error('Firebase não configurado.');
   if (!googleEnabled) throw new Error('Login do Google não configurado neste build.');
 
   ensureConfigured();
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-  const result = await GoogleSignin.signIn();
+  let result: Awaited<ReturnType<typeof GoogleSignin.signIn>>;
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    result = await GoogleSignin.signIn();
+  } catch (e) {
+    throw normalizeGoogleError(e);
+  }
 
   // Desde a v13 o cancelamento não lança: volta `{ type: 'cancelled' }`. Sem este
   // desvio, quem fecha a folha do Google veria "não devolveu o token" como erro.
-  // Lançar com o código de cancelamento faz `isCancelled()` silenciar a UI.
+  // O código é o literal (não `statusCodes.SIGN_IN_CANCELLED`, que no Android é
+  // "12501") para bater com a lista de cancelamentos de `auth-errors.ts`.
   if (result.type === 'cancelled') {
-    throw Object.assign(new Error('Login cancelado.'), { code: statusCodes.SIGN_IN_CANCELLED });
+    throw Object.assign(new Error('Login cancelado.'), { code: 'SIGN_IN_CANCELLED' });
   }
 
   const idToken = result.data.idToken;
