@@ -465,12 +465,15 @@ para desenhar o croqui, push, e **qualquer ligação com a loja / WooCommerce**.
 1. ~~**Firebase**: projeto, apps, configs, E-mail/senha, Google, Apple, regras~~ ✅
 2. ~~**Apple Developer**: capability no App ID, Services ID, Key, relay de e-mail~~ ✅
    (guia em [apple-sign-in.md](apple-sign-in.md); vale reusar o roteiro no M8 para a revogação).
-3. **Google Play Console**: registrar o app (sem subir nada) e pôr o **SHA-1 de release** no
-   Firebase (o de debug já está; comando:
-   `firebase apps:android:sha:create 1:371270416807:android:c8f0dc92330064f56d9e82 <SHA1>`).
-4. **Contrato de apps pagos** + dados bancários e fiscais na Apple. **É o item mais demorado** e
+3. **Contrato de apps pagos** + dados fiscais e bancários na Apple. **É o item mais demorado** e
    bloqueia o M2 inteiro.
-5. **RevenueCat**: conta, projeto, um entitlement chamado `pro`.
+4. **Google Play Console**: perfil de pagamentos, app criado, e o **SHA-1 de release** (o da
+   App signing key) no Firebase com
+   `firebase apps:android:sha:create 1:371270416807:android:c8f0dc92330064f56d9e82 <SHA1>`.
+5. **Firebase no plano Blaze**, para a Cloud Function do webhook.
+6. **RevenueCat**: conta, projeto, apps, credenciais das duas lojas, um entitlement chamado `pro`.
+
+**Guia passo a passo dos itens 3 a 6, com ordem por latência e checklist: [m2-setup.md](m2-setup.md).**
 
 ---
 
